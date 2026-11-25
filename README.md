@@ -199,7 +199,46 @@ node cli.mjs config test-notify     # 通过本地服务发送测试通知
 | Telegram | `telegram` | URL 填完整的 `sendMessage` 地址，`chatId` 可选 |
 | 通用 | `generic` | POST JSON：`{ source, title, text, timestamp }` |
 
-可以在网页「设置 → Webhook 推送」里粘贴地址、选择类型、点「发送测试通知」；Webhook 地址只保存在本机 `0600` 文件里，接口不回显完整地址或签名密钥。
+### 获取飞书机器人地址
+
+1. 打开飞书，进入接收提醒的群（建议单独建一个「额度监控」群）
+2. 点右上角 `···` → **设置** → **群机器人** → **添加机器人**
+3. 选择 **自定义机器人**，起名（如 `额度监控`），完成添加
+4. 复制生成的 Webhook 地址，形如：
+   ```
+   https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   ```
+5. 在「安全设置」里二选一：
+   - **自定义关键词**：填 `火山` 或 `额度`（通知标题一定包含这两个词）
+   - **签名校验**：复制飞书给的密钥，填到仪表盘的「签名密钥」
+   - 不要选 **IP 白名单**，本机出口 IP 不固定
+6. 打开仪表盘 → **设置 → Webhook 推送**，粘贴地址，类型留「自动识别」，点 **发送测试通知**
+
+手机端路径相同：群聊 → 右上角 `···` → 设置 → 群机器人 → 添加机器人。
+
+如果找不到「群机器人」，通常是当前账号不是群主/管理员，或企业管理员禁用了自定义机器人；换一个自己建的普通内部群即可。
+
+### 钉钉 / 企业微信
+
+- **钉钉**：群设置 → 机器人 → 添加机器人 → 自定义（通过 Webhook 接入）。安全设置选「加签」并把密钥填入「签名密钥」，或选「自定义关键词」填 `火山` / `额度`。
+- **企业微信**：群 → 群机器人 → 添加 → 新创建一个机器人，复制 Webhook 即可，没有加签，密钥留空。
+- **Telegram**：通过 `@BotFather` 建机器人，URL 填 `https://api.telegram.org/bot<token>/sendMessage`；`chatId` 需要在配置文件 `webhook.chatId` 里填，或直接拼在 URL 查询参数上。
+
+也可以用命令行配置和测试：
+
+```bash
+node cli.mjs config set-webhook 'https://open.feishu.cn/open-apis/bot/v2/hook/...' feishu '<签名密钥，可省略>'
+node cli.mjs config test-notify
+```
+
+Webhook 地址只保存在本机 `0600` 文件里，接口不回显完整地址或签名密钥。
+
+常见失败：
+
+- 飞书 `code=19021`：签名不匹配，检查密钥是否复制完整、类型是否误选
+- 飞书 `code=19024`：关键词不匹配，把关键词改成 `火山` 或 `额度`
+- 钉钉 `errcode=310000`：加签或关键词校验失败，同上处理
+- 群里收不到但测试返回成功：检查机器人是否被移出群、是否发到了另一个群
 
 没有配置 Webhook 时：Linux 尝试 `notify-send`，macOS 使用系统通知（`osascript`），Windows 直接写日志。都没有可用通知服务时退回日志。
 
