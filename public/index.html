@@ -146,6 +146,21 @@
   .model-name { font-weight: 550; }
   .muted { color: var(--muted); }
   .faint { color: var(--faint); }
+  .catalog-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .catalog-toolbar input[type="search"] {
+    width: 260px; max-width: 100%; padding: 8px 11px; font-size: 13px; border-radius: 9px;
+    border: 1px solid var(--border-strong); background: rgba(0, 0, 0, .12); color: var(--text); outline: none;
+  }
+  @media (prefers-color-scheme: light) { .catalog-toolbar input[type="search"] { background: #fff; } }
+  .catalog-toolbar input[type="search"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79, 140, 255, .16); }
+  .catalog-toolbar .hint { color: var(--faint); font-size: 11.5px; }
+  .coef { font-weight: 650; }
+  .coef.cheap { color: var(--good); }
+  .change { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+  .badge { display: inline-block; font-size: 11px; line-height: 1.7; padding: 0 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--faint); }
+  .badge.used { color: var(--accent); border-color: rgba(79, 140, 255, .4); background: rgba(79, 140, 255, .1); }
+  #catalogRows td:first-child { white-space: normal; min-width: 150px; }
+  #catalogRows td:nth-child(3) { font-size: 11.5px; }
   footer { margin-top: 18px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--faint); font-size: 11.5px; }
   .setup { max-width: 560px; margin: 9vh auto; padding: 30px; }
   .setup-badge { display: inline-block; font-size: 11.5px; color: var(--accent); border: 1px solid rgba(79, 140, 255, .35); background: rgba(79, 140, 255, .08); border-radius: 999px; padding: 3px 10px; margin-bottom: 14px; }
@@ -321,6 +336,32 @@
             </tr>
           </thead>
           <tbody id="modelRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="table-card card">
+      <div class="card-head">
+        <h2>可用模型与 credit 系数</h2>
+        <span class="meta" id="catalogMeta">—</span>
+      </div>
+      <div class="catalog-toolbar">
+        <input id="catalogSearch" type="search" placeholder="搜索模型 / 模型 ID / 提供方" autocomplete="off">
+        <span class="hint">credit 系数由网关 <code>/v1/models</code> 提供；同一模型的不同提供方分别展示。今日列按模型短名匹配，无法区分具体提供方。</span>
+      </div>
+      <div class="table-wrap">
+        <table id="catalogTable">
+          <thead>
+            <tr>
+              <th>模型</th>
+              <th>提供方</th>
+              <th>模型 ID</th>
+              <th>credit 系数</th>
+              <th>上次调整</th>
+              <th>今日同名调用</th>
+            </tr>
+          </thead>
+          <tbody id="catalogRows"></tbody>
         </table>
       </div>
     </section>
@@ -786,6 +827,62 @@ function renderModels(data) {
   $('modelsMeta').textContent = models.length + ' 个模型 · 按 credit 排序';
 }
 
+function renderCatalog(data) {
+  const catalog = data.catalog || {};
+  const all = catalog.models || [];
+  const tbody = $('catalogRows');
+  const query = ($('catalogSearch').value || '').trim().toLowerCase();
+  const models = query
+    ? all.filter((model) =>
+        [model.name, model.id, model.shortId, model.provider]
+          .some((value) => String(value || '').toLowerCase().includes(query)))
+    : all;
+
+  if (!all.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="muted">' +
+      (catalog.stale ? '模型目录暂不可用' : '模型目录加载中，请稍候') + '</td></tr>';
+    $('catalogMeta').textContent = '—';
+    return;
+  }
+
+  if (!models.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="muted">没有匹配的模型</td></tr>';
+  } else {
+    tbody.innerHTML = models.map((model) => {
+      const coef = Number.isFinite(model.credit) ? fmtCredit(model.credit) : '—';
+      const cheap = Number.isFinite(model.credit) && model.credit <= 0.5 ? ' cheap' : '';
+      let change = '—';
+      if (model.lastChange) {
+        const at = String(model.lastChange.at).slice(5);
+        change = Number.isFinite(model.lastChange.from)
+          ? at + ' · ' + fmtCredit(model.lastChange.from) + ' → ' + fmtCredit(model.lastChange.to)
+          : '自 ' + at + ' · ' + fmtCredit(model.lastChange.to);
+      }
+      return '<tr>' +
+        '<td class="model-name">' + esc(model.name) + '</td>' +
+        '<td>' + esc(model.provider) + '</td>' +
+        '<td class="faint">' + esc(model.id) + '</td>' +
+        '<td class="coef' + cheap + '">' + coef + '</td>' +
+        '<td class="change">' + esc(change) + '</td>' +
+        '<td>' + (model.used
+          ? '<span class="badge used" title="网关用量只返回模型短名，无法区分具体提供方">有</span>'
+          : '<span class="badge">—</span>') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  const fetched = catalog.fetchedAt
+    ? new Date(catalog.fetchedAt).toLocaleString('zh-CN', {
+        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+      })
+    : '未知时间';
+  const parts = [all.length + ' 个模型', '目录更新于 ' + fetched];
+  if (catalog.stale) parts.push('本地缓存');
+  if (query) parts.push('匹配 ' + models.length + '/' + all.length);
+  $('catalogMeta').textContent = parts.join(' · ');
+  $('catalogMeta').title = (catalog.warnings || []).join('\n');
+}
+
 function renderFooter(data) {
   const sourceMap = { env: '环境变量', config: '网页配置', opencode: 'OpenCode 配置' };
   const keyText = data.key?.hasKey
@@ -838,6 +935,7 @@ function render() {
   renderHistory(data);
   renderHourly(data);
   renderModels(data);
+  renderCatalog(data);
   renderFooter(data);
   updateCountdown();
 
@@ -1059,6 +1157,9 @@ async function refreshNow() {
 
 $('settingsBtn').addEventListener('click', openSettings);
 $('refreshBtn').addEventListener('click', refreshNow);
+$('catalogSearch').addEventListener('input', () => {
+  if (state.data) renderCatalog(state.data);
+});
 $('settingsForm').addEventListener('submit', saveSettings);
 $('clearKeyBtn').addEventListener('click', clearKey);
 $('testNotifyBtn').addEventListener('click', testNotify);

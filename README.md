@@ -7,6 +7,7 @@
 - 常驻网页仪表盘：`http://127.0.0.1:8788`
 - 命令行：`today` / `week` / `month` / `watch`
 - 每日额度阈值通知（默认 20/40/60/80/100/120%），支持飞书 / 钉钉 / 企业微信 / Slack / Telegram / 通用 Webhook
+- 页面底部展示网关可用模型与 credit 系数（来自 `/v1/models`），支持搜索
 - 历史快照落地 SQLite，网关只保留最近 31 天也能留下长期记录
 - 零运行时依赖，只用 Node 内置模块（`node:sqlite`、`fetch`）
 - Windows / macOS / Linux 一键安装，自带便携版 Node 下载
@@ -88,6 +89,7 @@ node server.mjs
 | 每日 credit | `/v1/usage/by-model?window=month` 按 `daily[].date` 聚合 | 权威口径 |
 | 每日请求数 | `/v1/usage/daily?days=31` | `by-model` 窗口不返回请求数，这里补齐 |
 | 按小时 | `/v1/usage/hourly` | 今日分时 token / 请求趋势 |
+| 模型目录 | `/v1/models` | 可用模型、提供方、`credit` 系数与 `credit_history` |
 
 三种 credit 表示（顶层 `credit`、`credit_breakdown`、`daily[].credit`）不要相加，它们是同一份数据的三种视图。
 
@@ -180,6 +182,7 @@ node cli.mjs config test-notify     # 通过本地服务发送测试通知
 | `poll.summary` | 600000 | token 展示与覆盖校验 |
 | `poll.hourly` | 300000 | 今日分时图 |
 | `poll.daily` | 1800000 | 每日请求数 / `complete` |
+| `poll.models` | 21600000 | 模型目录与 credit 系数，6 小时一次 |
 
 环境变量：`VOLC_GATEWAY_BASE_URL`、`VOLC_GATEWAY_API_KEY`、`VOLC_USAGE_PORT`、`VOLC_USAGE_DISABLE_NOTIFY=1`（只写日志，不发桌面通知）。
 
@@ -260,13 +263,15 @@ Webhook 地址只保存在本机 `0600` 文件里，接口不回显完整地址�
 npm test
 ```
 
-覆盖 JSONC 解析、Key/地址优先级、credit 归一化与聚合、覆盖校验、时区边界、通知去重、Webhook 签名、SQLite 快照。
+覆盖 JSONC 解析、Key/地址优先级、credit 归一化与聚合、覆盖校验、模型目录归一化、时区边界、通知去重、Webhook 签名、SQLite 快照。
 
 ## 已知边界
 
 - 本工具只观测，不代理、不拦截请求，也不会阻止超额调用；是否拒绝以网关实际响应为准。
 - 网关 `summary` 与 `by-model` 的抓取时间相差过大时跳过覆盖校验，避免误报；credit 始终以 `by-model` 为准。
 - `/v1/usage/daily` 默认只返回最近 7 天，代码显式请求 `?days=31`。
+- `/v1/models` 不接受任何 query 参数，加缓存穿透参数会返回 404，因此该请求不使用 `fresh` 逻辑。
+- 用量接口返回的是模型短名（如 `kimi-k3.1-pro`），模型目录里同一模型会按提供方拆成多条（如 `moonshot/kimi-k3.1-pro`），因此「今日同名调用」只能标记到短名，无法区分具体提供方。
 - 网关冷启动时 `/v1/usage/hourly` 可能返回 500 `function_dial_timeout`，客户端会自动重试。
 
 ## 项目结构
@@ -279,6 +284,7 @@ setup.sh|.command|.cmd 启动安装的入口（自动准备 Node）
 lib/config.mjs        配置、JSONC、Key/地址解析
 lib/gateway.mjs       网关请求、重试、缓存绕过
 lib/credit.mjs        credit 归一化、聚合、覆盖校验
+lib/catalog.mjs       模型目录 / credit 系数归一化
 lib/runtime.mjs       轮询、快照、通知评估
 lib/store.mjs         SQLite 历史与通知去重
 lib/notify.mjs        Webhook / 桌面通知
