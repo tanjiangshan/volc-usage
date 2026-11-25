@@ -105,7 +105,9 @@ test('saveConfig writes 0600 and can delete apiKey', () => {
   try {
     saveConfig({ apiKey: 'secret-key', dailyCreditLimit: 180 });
     const file = path.join(dir, 'config.json');
-    assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+    if (process.platform !== 'win32') {
+      assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+    }
     assert.deepEqual(readRawConfig(file), {
       apiKey: 'secret-key',
       dailyCreditLimit: 180,
