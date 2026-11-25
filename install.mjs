@@ -469,9 +469,9 @@ async function main() {
   if (!healthy) {
     log('');
     log('! 服务还没有响应，可能仍在启动。请稍后打开上面的地址，或查看日志。');
-  } else if (!keyInfo.apiKey) {
+  } else if (!keyInfo.apiKey || !config.baseUrl) {
     log('');
-    log('  首次使用：浏览器打开后粘贴火山AI网关 API Key 即可。');
+    log('  首次使用：浏览器打开后填写网关地址和 API Key 即可。');
   }
 
   if (!noBrowser && healthy) openBrowser(url);

@@ -69,7 +69,7 @@ node server.mjs
 
 1. 拷贝整个项目目录（可以不带 `.runtime/`、`config.json`、`usage.db`）
 2. 双击/执行对应系统的 setup 脚本
-3. 网页里粘贴同一个 API Key
+3. 网页里填写同一个网关地址和 API Key
 
 说明：
 
