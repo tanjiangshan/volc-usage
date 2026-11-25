@@ -1,0 +1,11 @@
+{
+  "baseUrl": "",
+  "dailyCreditLimit": 150,
+  "notify": true,
+  "port": 8788,
+  "webhook": {
+    "url": "",
+    "format": "auto",
+    "secret": ""
+  }
+}

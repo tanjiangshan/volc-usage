@@ -1,0 +1,37 @@
+{
+  "name": "volc-usage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "火山AI网关每日 credit 用量仪表盘：网页 + CLI + 阈值通知",
+  "type": "module",
+  "bin": {
+    "volc-usage": "./cli.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "setup": "node install.mjs",
+    "uninstall": "node install.mjs uninstall"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "license": "MIT",
+  "author": "tanjiangshan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tanjiangshan/volc-usage.git"
+  },
+  "homepage": "https://github.com/tanjiangshan/volc-usage#readme",
+  "bugs": {
+    "url": "https://github.com/tanjiangshan/volc-usage/issues"
+  },
+  "keywords": [
+    "volcengine",
+    "ai-gateway",
+    "credit",
+    "usage",
+    "dashboard",
+    "opencode"
+  ]
+}
